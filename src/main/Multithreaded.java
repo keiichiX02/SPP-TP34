@@ -1,82 +1,34 @@
 package main;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 
 
-public class EratoSieve {
-
-	static String pathToFile = 
-			"C:\\Users\\Fulhelmknight\\Desktop\\SPP-TP56ver19May"
-					+ "\\SPP-TP56v19May\\primes-to-100k.txt";
-
-	private ArrayList<Integer> primesArr;
-	private String primesTo100k;
+public class Multithreaded extends MyUtils {
+	
+	private int nbWorkers;	
 	private ArrayList<Worker> listOfThreads = new ArrayList<Worker>();
-	private CyclicBarrier barrier1 = new CyclicBarrier(1); 
-	private CyclicBarrier barrier2 = new CyclicBarrier(1);
-	private int nbWorkers;
+	private CyclicBarrier barrier1; // = new CyclicBarrier(1); 
+	private CyclicBarrier barrier2; // = new CyclicBarrier(1);
 	
-	public EratoSieve() throws IOException {
-		primesArr = new ArrayList<Integer>();
-		primesTo100k = EratoSieve.readFile(EratoSieve.pathToFile);
-	}
-	
-	/**
-	 * pour tester le cas multithread
-	 * @param parties nombre de workers
-	 * @throws IOException
-	 */
-	public EratoSieve(int parties) throws IOException {
-		primesArr = new ArrayList<Integer>();
-		primesTo100k = EratoSieve.readFile(EratoSieve.pathToFile);
+	public Multithreaded(int parties) throws IOException {		
+		super();
 		this.nbWorkers = parties;
 		Runnable ba1runnable = new Runnable() {
 			public void run() {
-				System.out.println("BarrierAction 1 executed ");
+				System.out.println("BarrierAction 1 executed: All threads reached barrier 1");
 			}
 		};
-		this.barrier1 = new CyclicBarrier(this.nbWorkers+1, ba1runnable); //?
 		Runnable ba2runnable = new Runnable() {
 			public void run() {
-				System.out.println("BarrierAction 2 executed ");
+				System.out.println("BarrierAction 2 executed: All threads reached barrier 2");
 			}
 		};
+		this.barrier1 = new CyclicBarrier(this.nbWorkers+1, ba1runnable);
 		this.barrier2 = new CyclicBarrier(1+this.nbWorkers, ba2runnable); //nb of workers
 
-	}
-
-	/**
-	 * 
-	 * @param n: the upper bound of the numbers
-	 */
-	public void runMonothreadedAlgorithm(int n) {
-		boolean[] tableOfBool = new boolean[n];
-		for(int i=0; i<n; i++) {
-			tableOfBool[i] = true;
-		}
-
-		double rc_of_n = Math.ceil(Math.sqrt(n)); //square root then round up		
-		for(int i=2; i<rc_of_n; i++) {
-			if(tableOfBool[i]) {
-				int sq_of_i = (int)Math.pow(i, 2);
-				for(int j = sq_of_i; j < Math.pow(rc_of_n, 2); j = j + i) {
-					if(j < tableOfBool.length) {
-						tableOfBool[j] = false; 
-					}//preventing debordement
-				}
-			}
-		}
-		
-		for(int i=2; i<tableOfBool.length; i++) {
-			if(tableOfBool[i]) {
-				primesArr.add(i);
-			}
-		}
 	}
 	
 	/**
@@ -109,27 +61,6 @@ public class EratoSieve {
 		}//fin else
 	}
 	
-	public static String boolArrayToString(boolean[] arr) {
-		String result = "";
-		for(int i=0; i<arr.length; i++) {
-			if(arr[i]) {
-				result = result + " T";
-			}else {
-				result = result + " F";
-			}
-			
-		}
-		return result;
-	}
-	
-	public static String arrayListIntegerToString(ArrayList<Integer> arr) {
-		String resul = "";
-		for(int element : arr) {
-			resul = resul + " " + element;
-		}
-		return resul;
-	}
-	
 	/**
 	 * 
 	 * @param n: upper bound of your primes
@@ -148,30 +79,27 @@ public class EratoSieve {
 			this.listOfThreads.add(t);
 			t.start();
 		}
-		
-		
 		System.out.println(Thread.currentThread().getName() +
-                " finished creating k worker threads");
+                " finished creating k worker threads and launch them");
 		//fin create k threads and launch them
 		
 		
 		double rc_of_n = Math.ceil(Math.sqrt(n)); //square root then round up
 		for(int i=2; i<rc_of_n; i++) {
-			
 //			for(Worker w : this.listOfThreads) {
 //				w.start();
 //			}
-			System.out.println(Thread.currentThread().getName() +
-	                " finished launching k worker threads");
-			
+//			System.out.println(Thread.currentThread().getName() +
+//	                " finished launching k worker threads");
 			if(tableOfBool[i]) {
-				
-				System.out.println("i = " + i);
-				System.out.println(EratoSieve.boolArrayToString(tableOfBool));//test
-				
+				System.out.println("      current i = " + i); //test
+				System.out.println("      current tableOfBool: " 
+						+ MyUtils.boolArrayToString(tableOfBool));//test
+
 				//distribute work among the k worker threads
 				ArrayList<Integer> rangeArr = dispatchRangeForWorkerThreads(k, (int)rc_of_n);
-				System.out.println(EratoSieve.arrayListIntegerToString(rangeArr)); //test
+				System.out.println("      current rangeArr: " + 
+						MyUtils.arrayListIntegerToString(rangeArr)); //test
 				int indice_range = 0;
 				for(Worker thr : this.listOfThreads) {
 					thr.setStartNb(rangeArr.get(indice_range));
@@ -180,34 +108,28 @@ public class EratoSieve {
 					indice_range++;
 				}
 				System.out.println(Thread.currentThread().getName() +
-                        " finished distributing work among k threads (Main)");
-				//fin dist
+                        " finished distributing work among k threads");
+				//fin dist.
 				
 				try {
 					System.out.println(Thread.currentThread().getName() +
-	                        " waiting at barrier 1 (Main thread)");
+	                        " waiting at barrier 1");
 					barrier1.await();
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					System.out.println("Main Thread interrupted!");
 					e.printStackTrace();
 				} catch (BrokenBarrierException e) {
-					// TODO Auto-generated catch block
-					System.out.println("Main Thread interrupted!");
 					e.printStackTrace();
 				}
 				
-				//all worker threads do their iteration...
+				//all worker threads do their tasks...
 				
 				try {
 					System.out.println(Thread.currentThread().getName() +
-                            " waiting at barrier 2 (Main thread)");
-					barrier2.await(); //main thread comes here and got stuck!
+                            " waiting at barrier 2");
+					barrier2.await();
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				} catch (BrokenBarrierException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 				
@@ -242,34 +164,7 @@ public class EratoSieve {
 		}
 	}
 	
-	/**
-	 * output the found primes to string
-	 * @return
-	 */
-	public String toString() {
-		String result = "";
-		for(int primeNumber : primesArr) {
-			result = result + primeNumber + "\n";
-		}
-		return result;
-	}
 	
-	public static String readFile(String fileName) throws IOException {
-	    BufferedReader br = new BufferedReader(new FileReader(fileName)); 
-	    try {
-	        StringBuilder sb = new StringBuilder();
-	        String line = br.readLine();
-
-	        while (line != null) {
-	            sb.append(line);
-	            sb.append("\n");
-	            line = br.readLine();
-	        }
-	        return sb.toString();
-	    }finally {
-	        br.close();
-	    }
-	}
 	
 	/**
 	 * return True if mother has son as a substring, False otherwise
@@ -286,13 +181,8 @@ public class EratoSieve {
 	}
 	
 	public static void main(String[] args) throws IOException {
-		/*EratoSieve es = new EratoSieve();
-		es.runMonothreadedAlgorithm(10);
-		String s = es.foundPrimesToString();
-		boolean result = es.checkMasterStringForSubstring(s);
-		System.out.println(s + " result = " + result + "\n");
-		*/
 		/*
+		//Test dispatchRange:
 		int n = 12; 
 		int k = 3;
 		System.out.println("max primes n = " + n + "; nb of threads = " + k);
@@ -301,25 +191,25 @@ public class EratoSieve {
 			System.out.print(i + " ");
 		}
 		*/
-		EratoSieve esMulti = new EratoSieve(1);
-		esMulti.runMultithreadedAlgorithm(10, 1);
-		esMulti.checkMasterStringForSubstring(esMulti.toString());
+		Multithreaded program = new Multithreaded(1);
+		program.runMultithreadedAlgorithm(10, 1);
+		program.checkMasterStringForSubstring(program.toString());
 	}
 	
-	
 	public class Worker extends Thread {
-		private final CyclicBarrier cyclicBarrier;
-		private final CyclicBarrier cyclicBarrier2;
+		private final CyclicBarrier barrier1;
+		private final CyclicBarrier barrier2;
 		private boolean[] rawNumbers;
 		private int startNb;
 		private int endNb;
 		private int indice_i; //remember j = i^2
 		
 		public Worker(CyclicBarrier cb, CyclicBarrier cb2, boolean[] rn, int s, int e, int i) {
-			this.cyclicBarrier = cb;
-			this.cyclicBarrier2 = cb2;
+			this.barrier1 = cb;
+			this.barrier2 = cb2;
 			this.rawNumbers = rn;
-			this.startNb = s; this.endNb = e;
+			this.startNb = s; 
+			this.endNb = e;
 			this.indice_i = i;
 		}
 		
@@ -360,27 +250,24 @@ public class EratoSieve {
 				try {
 					System.out.println(Thread.currentThread().getName() +
 	                        " waiting at barrier 1");
-					this.cyclicBarrier.await();
+					this.barrier1.await();
 				} catch (BrokenBarrierException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				
 				
 				for(int j = (int)Math.pow(this.getIndice_i(), 2); 
 						(this.getStartNb() <= j) && (j <= this.getEndNb()); j = j + this.indice_i) {
 					this.rawNumbers[j] = false;
 				}
 				System.out.println(Thread.currentThread().getName() +
-	                    " finished the iteration work (Worker)");
+	                    " finished the work");
 				
 				
 				try {
 					System.out.println(Thread.currentThread().getName() +
 	                        " waiting at barrier 2");
-					this.cyclicBarrier2.await();
+					this.barrier2.await();
 				} catch (BrokenBarrierException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			} catch (InterruptedException e) {
