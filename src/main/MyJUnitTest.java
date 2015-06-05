@@ -42,8 +42,26 @@ public class MyJUnitTest {
 	}
 	
 	@Test
-	public void testMultithreadedN7K2() throws IOException {
-		Multithreaded es = new Multithreaded(7, 2);
+	public void testMultithreadedN7K1() throws IOException {
+		Multithreaded es = new Multithreaded(7, 1);
+		es.runMultithreadedAlgorithm();
+		System.out.println("Resultat :\n\n\n" + es.toString());
+		boolean result = es.checkMasterStringForSubstring(es.toString());
+		assertTrue(result);
+	}
+	
+	@Test
+	public void testMultithreadedN10K1() throws IOException {
+		Multithreaded es = new Multithreaded(10, 1);
+		es.runMultithreadedAlgorithm();
+		System.out.println("Resultat :\n\n\n" + es.toString());
+		boolean result = es.checkMasterStringForSubstring(es.toString());
+		assertTrue(result);
+	}
+	
+	@Test
+	public void testMultithreadedN10K2() throws IOException {
+		Multithreaded es = new Multithreaded(10, 2);
 		es.runMultithreadedAlgorithm();
 		System.out.println("Resultat :\n\n\n" + es.toString());
 		boolean result = es.checkMasterStringForSubstring(es.toString());
@@ -53,6 +71,15 @@ public class MyJUnitTest {
 	@Test
 	public void testMultithreadedN17K4() throws IOException {
 		Multithreaded es = new Multithreaded(17, 4);
+		es.runMultithreadedAlgorithm();
+		System.out.println("Resultat :\n\n\n" + es.toString());
+		boolean result = es.checkMasterStringForSubstring(es.toString());
+		assertTrue(result);
+	}
+	
+	@Test
+	public void testMultithreadedN1000K15() throws IOException {
+		Multithreaded es = new Multithreaded(1000, 15);
 		es.runMultithreadedAlgorithm();
 		System.out.println("Resultat :\n\n\n" + es.toString());
 		boolean result = es.checkMasterStringForSubstring(es.toString());
