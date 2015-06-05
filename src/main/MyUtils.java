@@ -87,6 +87,7 @@ public class MyUtils {
 	
 	/**
 	 * return True if mother has son as a substring, False otherwise
+	 * REMARQUE: A ne pas utiliser avec les tests de performance
 	 * @param son
 	 */
 	public boolean checkMasterStringForSubstring(String son) {

@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.locks.ReentrantLock;
 
 
 public class Multithreaded extends MyUtils {
@@ -16,7 +15,7 @@ public class Multithreaded extends MyUtils {
 	private CyclicBarrier barrier2;
 	boolean[] arrA = new boolean[this.getN() + 1];
 	//ex. n=5 => arrA.size()=6 avec index rangé comme 0, 1, 2, 3, 4, 5
-	//static ReentrantLock myLock = new ReentrantLock();
+	PauseControl myPauseControl;
 	
 	/**
 	 * 
@@ -29,22 +28,41 @@ public class Multithreaded extends MyUtils {
 		this.nbWorkers = nbWorkers;
 		Runnable ba1runnable = new Runnable() {
 			public void run() {
-				//System.out.println("BarrierAction 1 executed: All threads reached barrier 1");
+				//System.out.println("All threads reached barrier 1");
 			}
 		};
 		Runnable ba2runnable = new Runnable() {
 			public void run() {
-				//System.out.println("BarrierAction 2 executed: All threads reached barrier 2");
+				//System.out.println("All threads reached barrier 2");
 			}
 		};
 		this.barrier1 = new CyclicBarrier(this.nbWorkers+1, ba1runnable);
-		this.barrier2 = new CyclicBarrier(1+this.nbWorkers, ba2runnable); //nb of workers
+		this.barrier2 = new CyclicBarrier(1+this.nbWorkers, ba2runnable);
+		
+		this.myPauseControl = new PauseControl();
 
 	}
 	
 	public int getNbWorkers() {
 		return nbWorkers;
 	}
+	
+	/**
+	 * exemple: 7/3=3; 8/3=3; 9/3=3; 17/4=5;
+	 * @param a diviseur
+	 * @param b divisé
+	 * @return
+	 */
+	public static int roundUpDoubleToIntClosestToPositiveInfinity(double a, int b) {
+		double mod = a % b;
+		if(mod == 0) {
+			return (int) (a / b);
+		}else {
+			int quot = ((int) (a-mod))  / b;
+			return quot + 1;
+		}	
+	}
+	
 
 	/**
 	 * 
@@ -60,7 +78,8 @@ public class Multithreaded extends MyUtils {
 			result.add(new Couple(0, arr.size()-1));
 		}else {
 			int sizeOfEachRange = 
-					(int) Math.round(((double) arr.size()) / this.getNbWorkers());
+					Multithreaded.roundUpDoubleToIntClosestToPositiveInfinity((double) arr.size(), this.getNbWorkers());
+			//System.out.println("range size = " + sizeOfEachRange);
 			assert(sizeOfEachRange > 1);
 			int numberOfIteration = 0;
 			for(int i = 0; numberOfIteration < this.getNbWorkers(); numberOfIteration++) {
@@ -77,12 +96,12 @@ public class Multithreaded extends MyUtils {
 		
 		return result;
 	}
-	
+		
 	/**
 	 * 
 	 * @param n: upper bound of your primes
 	 */
-	public void runMultithreadedAlgorithm() {
+	public void runAlgorithm() {
 		for(int i=0; i<arrA.length; i++) {
 			arrA[i] = true;
 		}
@@ -98,19 +117,21 @@ public class Multithreaded extends MyUtils {
 		}
 		//fin create k threads
 		
+		for(Worker w : this.listOfThreads) {
+			w.start();
+			//System.out.println("  " + w.getName() + " launched");
+		}
 		
 		double sqrt_n = Math.ceil(Math.sqrt(this.getN())); //square root then round up
-		System.out.println("sqrt n = " + sqrt_n);
+		//System.out.println("sqrt n = " + sqrt_n);
 		for(int i=2; i<sqrt_n; i++) {
-			System.out.println("is arrA[3] true? " + (arrA[3] == true));
+
+			for(int nbOfWorkerWaiting = 0; nbOfWorkerWaiting<this.nbWorkers; nbOfWorkerWaiting++) {
+				this.myPauseControl.unpause();
+			}
 			
 			if(arrA[i]) {
-				System.out.println("i = " + i);
-				for(Worker w : this.listOfThreads) {
-					w.start();
-				}
 				
-
 				//distribute work among the k worker threads
 				ArrayList<Integer> jArr = new ArrayList<Integer>();
 				int j = (int) Math.pow(i, 2);
@@ -137,7 +158,6 @@ public class Multithreaded extends MyUtils {
 					e.printStackTrace();
 				}
 				
-				//all worker threads do their tasks...
 				
 				try {
 					barrier2.await();
@@ -147,24 +167,17 @@ public class Multithreaded extends MyUtils {
 					e.printStackTrace();
 				}
 				
-				System.out.println("is arrA[3] true? (inner) " + (arrA[3] == true));
 				
 			} //fin if(booleanArrA[i]) {
-			
-			System.out.println("i (fin de if) = " + i);
-			
-			//MAJ des threads avec le nouveau contenu de booleanArrA
-			for(int ii = 0; ii < this.getNbWorkers(); ii++) {
-				t = new Worker(this, this.barrier1, this.barrier2);
-				//t = new Worker(this.barrier1, this.barrier2, arrA);
-				this.listOfThreads = new ArrayList<Worker>();
-				this.listOfThreads.add(t);
-			}
+
+			//System.out.println("i = " + i + " passed");
 			
 		}//fin loop for with every i
 		
+		//terminate all worker threads:
 		for(Worker w : this.listOfThreads) {
 			try {
+				//System.out.println(w.getName() + " is terminated by main thread");
 				w.interrupt();
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -229,34 +242,41 @@ public class Multithreaded extends MyUtils {
 					try {
 						this.barrier1.await();
 
-						//for(int j = 0; j < this.jArr.size(); j++) {
-						System.out.println(Thread.currentThread().getName() +
-								"  current jArr: " 
-								+ MyUtils.arrayListIntegerToString(this.jArr) +
-								"\n    start=" + this.startIndexOfjArr +
-								"    end=" + this.endIndexOfjArr);
+//						System.out.println(Thread.currentThread().getName() 
+//								+ " takes care of start=" + this.startIndexOfjArr +
+//								"    end=" + this.endIndexOfjArr);
 						int j=this.startIndexOfjArr;
 						while(j<=this.endIndexOfjArr) {
 							int index = this.getjArr().get(j);
-							System.out.println("  index=" + index);
+							//System.out.println("  j=" + index);
 							//myLock.lock();
 							this.mainThread.arrA[index] = false;
-							//this.iArr[index] = false;
 							//myLock.unlock();
 							j++;
-							//j = j + this.incrementationRange;
-							System.out.println("this.mainThread.arrA: " 
-									+ MyUtils.boolArrayToString(this.mainThread.arrA));
+							
 						}
-
+//						System.out.println(
+//								"  used jArr = " + MyUtils.arrayListIntegerToString(this.jArr)
+//								+ " to obtain arrA = "
+//								+ MyUtils.boolArrayToString(this.mainThread.arrA));
+						
 						this.barrier2.await();
+						
+						
+						
 					} catch (BrokenBarrierException e) {
-						e.printStackTrace();
+						//e.printStackTrace();
 					}
 				}
+				
+				//pause this worker thread, to be notified when it has new task
+//				System.out.println("  " + Thread.currentThread().getName()
+//						+ " paused");
+				this.mainThread.myPauseControl.pause();
+				this.mainThread.myPauseControl.pausePoint();
 
 			} catch (InterruptedException e) {
-				System.err.println(Thread.currentThread().getName() + " terminated");
+				//System.err.println(Thread.currentThread().getName() + " terminated");
 			}
 		}
 
