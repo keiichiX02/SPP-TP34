@@ -10,18 +10,29 @@ public class MyUtils {
 	static String pathToFile = 
 			"C:\\Users\\Fulhelmknight\\Desktop\\SPP-TP56ver19May"
 					+ "\\SPP-TP56v19May\\primes-to-100k.txt";
+	private int n;
 	protected ArrayList<Integer> primesArr;
 	protected String primesTo100k;
 	
 
-	public MyUtils() {
+	/**
+	 * 
+	 * @param n upper limit of the prime numbers
+	 */
+	public MyUtils(int n) {
 		try {
+			this.n = n;
 			this.primesArr = new ArrayList<Integer>();
 			this.primesTo100k = MyUtils.readFile(MyUtils.pathToFile);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+	}
+	
+
+	public int getN() {
+		return n;
 	}
 
 	public static String boolArrayToString(boolean[] arr) {

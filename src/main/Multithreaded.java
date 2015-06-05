@@ -2,6 +2,7 @@ package main;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 
@@ -10,12 +11,18 @@ public class Multithreaded extends MyUtils {
 	
 	private int nbWorkers;	
 	private ArrayList<Worker> listOfThreads = new ArrayList<Worker>();
-	private CyclicBarrier barrier1; // = new CyclicBarrier(1); 
-	private CyclicBarrier barrier2; // = new CyclicBarrier(1);
+	private CyclicBarrier barrier1;
+	private CyclicBarrier barrier2;
 	
-	public Multithreaded(int parties) throws IOException {		
-		super();
-		this.nbWorkers = parties;
+	/**
+	 * 
+	 * @param n upper limit of your primes
+	 * @param nbWorkers number of threads used
+	 * @throws IOException
+	 */
+	public Multithreaded(int n, int nbWorkers) throws IOException {		
+		super(n);
+		this.nbWorkers = nbWorkers;
 		Runnable ba1runnable = new Runnable() {
 			public void run() {
 				System.out.println("BarrierAction 1 executed: All threads reached barrier 1");
@@ -31,84 +38,104 @@ public class Multithreaded extends MyUtils {
 
 	}
 	
+	public int getNbWorkers() {
+		return nbWorkers;
+	}
+
 	/**
-	 * example: 3 threads, n = 11 produces 0 5 10 11
-	 * example 2: 3 threads, n = 12, produces 0 6 12 12
-	 * example 3: 3 threads, n = 13, produces 0 6 12 13
-	 * @param k: number of worker threads
-	 * @param n: upper bound of primes
+	 * 
+	 * @param arr: array of squared i: contain i², i²+i, i²+2i, etc...
+	 * @return working range for each worker thread. For example:
+	 * Example 1: k=1 => return = {(0, arrayOfSquaredI.size()-1)} <== this worker starts at index 0 of arrayOfSquaredI
+	 * Example 2: k=2, arrayOfSquaredI has 5 elements => return = {(0, 2), (3, 4)} <== worker1 starts at index 0,
+	 * worker 2 starts at index 3
 	 */
-	public ArrayList<Integer> dispatchRangeForWorkerThreads(int k, int n) {
-		assert(k > 0);
-		if(k == 1) {
-			ArrayList<Integer> ranges = new ArrayList<Integer>();
-			ranges.add(0);
-			ranges.add(n);
-			
-			return ranges;
-			
+	public ArrayList<Couple> dispatch(ArrayList<Integer> arr) {
+		ArrayList<Couple> result = new ArrayList<Couple>();
+		if(this.getNbWorkers() == 1) {
+			result.add(new Couple(0, arr.size()-1));
 		}else {
-			ArrayList<Integer> ranges = new ArrayList<Integer>();
-			//int inum = (int)(long) Math.floorDiv(n, k-1); //non compatible avec Java 7
-			int inum = (int) Math.round(((double) n) / (k-1));
-			//comportement attendu: 2 threads => 2 ranges (y inclu dernier rnage)
-			for(int i = 0; (i * inum) <= n; i++) {
-				ranges.add(i * inum);
+			int sizeOfEachRange = 
+					(int) Math.round(((double) arr.size()) / this.getNbWorkers());
+			assert(sizeOfEachRange > 1);
+			System.out.println("sizeOfEachRange = " + sizeOfEachRange);
+			int numberOfIteration = 0;
+			for(int i = 0; numberOfIteration < this.getNbWorkers(); numberOfIteration++) { //number of iteration = number of ranges = number of threads
+				if( (i + sizeOfEachRange - 1) >= arr.size()) { //also final couple to add
+					Couple c = new Couple(i, arr.size()-1);
+					result.add(c);
+				}else {
+					Couple c = new Couple(i, i + sizeOfEachRange - 1);
+					result.add(c);
+					i = i + sizeOfEachRange;
+				}
 			}
-			ranges.add(n);
-			
-			return ranges;
-		}//fin else
+		}
+		
+		//test
+		String s = "dispatch list: ";
+		for(Couple c : result ) {
+			s = s + c.toString() + ", ";
+		}
+		System.out.println(s);
+		return result;
 	}
 	
 	/**
 	 * 
 	 * @param n: upper bound of your primes
-	 * @param k: number of threads
 	 */
-	public void runMultithreadedAlgorithm(int n, int k) {
-		boolean[] tableOfBool = new boolean[n];
-		for(int i=0; i<n; i++) {
-			tableOfBool[i] = true;
+	public void runMultithreadedAlgorithm() {
+		boolean[] booleanArrA = new boolean[this.getN()];
+		for(int i=0; i<this.getN(); i++) {
+			booleanArrA[i] = true;
 		}
+		booleanArrA[0] = false; //case 1 = FALSE
 		
-		//create k threads and launch them
+		//create k threads
 		Worker t;
-		for(int i = 0; i < k; i++) {
-			t = new Worker(this.barrier1, this.barrier2, tableOfBool, -1, -1, -1);
+		for(int i = 0; i < this.getNbWorkers(); i++) {
+			t = new Worker(this.barrier1, this.barrier2, booleanArrA);
 			this.listOfThreads.add(t);
-			t.start();
 		}
 		System.out.println(Thread.currentThread().getName() +
-                " finished creating k worker threads and launch them");
-		//fin create k threads and launch them
+                " created " + this.getNbWorkers() + " worker threads");
+		//fin create k threads
 		
 		
-		double rc_of_n = Math.ceil(Math.sqrt(n)); //square root then round up
-		for(int i=2; i<rc_of_n; i++) {
-//			for(Worker w : this.listOfThreads) {
-//				w.start();
-//			}
-//			System.out.println(Thread.currentThread().getName() +
-//	                " finished launching k worker threads");
-			if(tableOfBool[i]) {
+		double sqrt_n = Math.ceil(Math.sqrt(this.getN())); //square root then round up
+		for(int i=2; i<sqrt_n; i++) {
+			
+			System.out.println(Thread.currentThread().getName() +
+	                " launched " + this.getNbWorkers() + " worker threads");
+			if(booleanArrA[i]) {
+				for(Worker w : this.listOfThreads) {
+					w.start();
+				}
+				
 				System.out.println("      current i = " + i); //test
 				System.out.println("      current tableOfBool: " 
-						+ MyUtils.boolArrayToString(tableOfBool));//test
+						+ MyUtils.boolArrayToString(booleanArrA));//test
 
 				//distribute work among the k worker threads
-				ArrayList<Integer> rangeArr = dispatchRangeForWorkerThreads(k, (int)rc_of_n);
-				System.out.println("      current rangeArr: " + 
-						MyUtils.arrayListIntegerToString(rangeArr)); //test
-				int indice_range = 0;
-				for(Worker thr : this.listOfThreads) {
-					thr.setStartNb(rangeArr.get(indice_range));
-					thr.setEndNb(rangeArr.get(indice_range + 1));
-					thr.setIndice_i(i);
-					indice_range++;
+				ArrayList<Integer> jArr = new ArrayList<Integer>();
+				int j = (int) Math.pow(i, 2);
+				while(j <= this.getN()) {
+					jArr.add(j);
+					j = j + i;
+				}
+				System.out.println("      current jArr: " 
+						+ MyUtils.arrayListIntegerToString(jArr));				
+				ArrayList<Couple> rangeArr = dispatch(jArr);
+				Iterator<Couple> iterator = rangeArr.iterator();
+				for(Worker w : this.listOfThreads) {
+					Couple c = iterator.next();
+					w.setStartNb(c.getFirst());
+					w.setEndNb(c.getSecond());
+					w.setjArr(jArr);
 				}
 				System.out.println(Thread.currentThread().getName() +
-                        " finished distributing work among k threads");
+                        " distributed work among " + this.getNbWorkers() + " threads");
 				//fin dist.
 				
 				try {
@@ -125,7 +152,8 @@ public class Multithreaded extends MyUtils {
 				
 				try {
 					System.out.println(Thread.currentThread().getName() +
-                            " waiting at barrier 2");
+                            " waiting at barrier 2: "
+                            + "wait for all worker threads to complete their iteration");
 					barrier2.await();
 				} catch (InterruptedException e) {
 					e.printStackTrace();
@@ -133,92 +161,62 @@ public class Multithreaded extends MyUtils {
 					e.printStackTrace();
 				}
 				
-			}
+			} //fin if(booleanArrA[i]) {
 			
-			for(Worker w : this.listOfThreads) {
-				try {
-					Thread.sleep(3000);
-					w.interrupt();
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}
-			System.out.println(Thread.currentThread().getName() +
-	                " finished stopping (interrupt) k worker threads");
-			
-			for(int ii = 0; ii < k; ii++) {
-				t = new Worker(this.barrier1, this.barrier2, tableOfBool, -1, -1, -1);
+			//MAJ des threads avec le nouveau contenu de booleanArrA
+			for(int ii = 0; ii < this.getNbWorkers(); ii++) {
+				t = new Worker(this.barrier1, this.barrier2, booleanArrA);
 				this.listOfThreads = new ArrayList<Worker>();
 				this.listOfThreads.add(t);
-				t.start();
 			}
 			
-		}//fin loop for with i
+		}//fin loop for with every i
 		
+		for(Worker w : this.listOfThreads) {
+			try {
+				w.interrupt();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+		System.out.println(Thread.currentThread().getName() +
+                " interrupted " + this.getNbWorkers() + " worker threads");
 		
-		for(int i=2; i<tableOfBool.length; i++) {
-			if(tableOfBool[i]) {
-				//result = result + i + "\n";
+		//update result to be printed:
+		for(int i=2; i<booleanArrA.length; i++) {
+			if(booleanArrA[i]) {
 				primesArr.add(i);
 			}
 		}
 	}
 	
 	
-	
-	/**
-	 * return True if mother has son as a substring, False otherwise
-	 * @param son
-	 */
-	public boolean checkMasterStringForSubstring(String son) {
-		int lastIndex = primesTo100k.indexOf(son, 0);
-		//assertTrue("\ntest passed", (lastIndex != -1));
-		if(lastIndex != -1) {
-			return true;
-		}else {
-			return false;
-		}
-	}
-	
-	public static void main(String[] args) throws IOException {
-		/*
-		//Test dispatchRange:
-		int n = 12; 
-		int k = 3;
-		System.out.println("max primes n = " + n + "; nb of threads = " + k);
-		ArrayList<Integer> arr = es.produceRangesForKWorkers(k, n);
-		for(int i : arr) {
-			System.out.print(i + " ");
-		}
-		*/
-		Multithreaded program = new Multithreaded(1);
-		program.runMultithreadedAlgorithm(10, 1);
-		program.checkMasterStringForSubstring(program.toString());
-	}
-	
 	public class Worker extends Thread {
 		private final CyclicBarrier barrier1;
 		private final CyclicBarrier barrier2;
-		private boolean[] rawNumbers;
+		private boolean[] iArr;
 		private int startNb;
 		private int endNb;
-		private int indice_i; //remember j = i^2
+		private ArrayList<Integer> jArr;
 		
-		public Worker(CyclicBarrier cb, CyclicBarrier cb2, boolean[] rn, int s, int e, int i) {
-			this.barrier1 = cb;
-			this.barrier2 = cb2;
-			this.rawNumbers = rn;
-			this.startNb = s; 
-			this.endNb = e;
-			this.indice_i = i;
+		
+		public Worker(CyclicBarrier barrier1, CyclicBarrier barrier2,
+				boolean[] rawNumbers) {
+			super();
+			this.barrier1 = barrier1;
+			this.barrier2 = barrier2;
+			this.iArr = rawNumbers;
+			this.startNb = -1;
+			this.endNb = -1;
+			this.jArr = new ArrayList<Integer>();
 		}
 		
-		public int getIndice_i() {
-			return indice_i;
+		public boolean[] getRawNumbers() {
+			return iArr;
 		}
 
-		public void setIndice_i(int indice_i) {
-			this.indice_i = indice_i;
+		public void setRawNumbers(boolean[] rawNumbers) {
+			this.iArr = rawNumbers;
 		}
 
 		public int getStartNb() {
@@ -237,47 +235,72 @@ public class Multithreaded extends MyUtils {
 			this.endNb = endNb;
 		}
 
-		public boolean[] getRawNumbers() {
-			return rawNumbers;
+		public ArrayList<Integer> getjArr() {
+			return jArr;
 		}
 
-		public void setRawNumbers(boolean[] rawNumbers) {
-			this.rawNumbers = rawNumbers;
+		public void setjArr(ArrayList<Integer> jArr) {
+			this.jArr = jArr;
 		}
 
 		public void run() {
 			try {
-				try {
-					System.out.println(Thread.currentThread().getName() +
-	                        " waiting at barrier 1");
-					this.barrier1.await();
-				} catch (BrokenBarrierException e) {
-					e.printStackTrace();
+				while(!Thread.currentThread().isInterrupted()) {
+					try {
+						System.out.println(Thread.currentThread().getName() +
+								" waiting at barrier 1: wait for the "
+								+ "main thread to initialize the work to be done");
+						this.barrier1.await();
+
+
+						for(int j = 0; j < this.jArr.size(); j++) {
+							this.iArr[this.getjArr().get(j)] = false;
+							System.out.println("      current tableOfBool: " 
+									+ MyUtils.boolArrayToString(iArr));
+						}
+						System.out.println(Thread.currentThread().getName() +
+								" finished the work");
+
+						System.out.println(Thread.currentThread().getName() +
+								" waiting at barrier 2");
+						this.barrier2.await();
+					} catch (BrokenBarrierException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
 				}
-				
-				for(int j = (int)Math.pow(this.getIndice_i(), 2); 
-						(this.getStartNb() <= j) && (j <= this.getEndNb()); j = j + this.indice_i) {
-					this.rawNumbers[j] = false;
-				}
-				System.out.println(Thread.currentThread().getName() +
-	                    " finished the work");
-				
-				
-				try {
-					System.out.println(Thread.currentThread().getName() +
-	                        " waiting at barrier 2");
-					this.barrier2.await();
-				} catch (BrokenBarrierException e) {
-					e.printStackTrace();
-				}
+
 			} catch (InterruptedException e) {
-				System.out.println("interrupted ???");
-				e.printStackTrace();
+				System.err.println(Thread.currentThread().getName() + " terminated");
 			}
-			
+		}
+
+	}//fin class Worker
+	
+	public class Couple {
+		
+		private int first;
+		private int second;
+		
+		public Couple(int first, int second) {
+			super();
+			this.first = first;
+			this.second = second;
+		}
+
+		public int getFirst() {
+			return first;
+		}
+
+		public int getSecond() {
+			return second;
+		}
+		
+		public String toString() {
+			return "(" + first + ", " + second + ")";
 		}
 		
 		
-	}//fin class Worker
+	}
 
 }
