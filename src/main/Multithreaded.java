@@ -14,8 +14,9 @@ public class Multithreaded extends MyUtils {
 	private ArrayList<Worker> listOfThreads = new ArrayList<Worker>();
 	private CyclicBarrier barrier1;
 	private CyclicBarrier barrier2;
-	boolean[] arrA = new boolean[this.getN()];
-	static ReentrantLock myLock = new ReentrantLock();
+	boolean[] arrA = new boolean[this.getN() + 1];
+	//ex. n=5 => arrA.size()=6 avec index rangé comme 0, 1, 2, 3, 4, 5
+	//static ReentrantLock myLock = new ReentrantLock();
 	
 	/**
 	 * 
@@ -82,10 +83,11 @@ public class Multithreaded extends MyUtils {
 	 * @param n: upper bound of your primes
 	 */
 	public void runMultithreadedAlgorithm() {
-		for(int i=0; i<this.getN(); i++) {
+		for(int i=0; i<arrA.length; i++) {
 			arrA[i] = true;
 		}
-		arrA[0] = false; //case 1 = FALSE
+		arrA[0] = false; //index 0: 0 isn't prime
+		arrA[1] = false; //index 1: 1 isn't prime
 		
 		//create k threads
 		Worker t;
@@ -98,7 +100,9 @@ public class Multithreaded extends MyUtils {
 		
 		
 		double sqrt_n = Math.ceil(Math.sqrt(this.getN())); //square root then round up
+		System.out.println("sqrt n = " + sqrt_n);
 		for(int i=2; i<sqrt_n; i++) {
+			System.out.println("is arrA[3] true? " + (arrA[3] == true));
 			
 			if(arrA[i]) {
 				System.out.println("i = " + i);
@@ -143,6 +147,8 @@ public class Multithreaded extends MyUtils {
 					e.printStackTrace();
 				}
 				
+				System.out.println("is arrA[3] true? (inner) " + (arrA[3] == true));
+				
 			} //fin if(booleanArrA[i]) {
 			
 			System.out.println("i (fin de if) = " + i);
@@ -168,7 +174,7 @@ public class Multithreaded extends MyUtils {
 		//update result to be printed:
 		for(int i=0; i<arrA.length; i++) {
 			if(arrA[i]) {
-				primesArr.add(i+1);
+				primesArr.add(i);
 			}
 		}
 	}
@@ -234,7 +240,7 @@ public class Multithreaded extends MyUtils {
 							int index = this.getjArr().get(j);
 							System.out.println("  index=" + index);
 							//myLock.lock();
-							this.mainThread.arrA[index-1] = false;
+							this.mainThread.arrA[index] = false;
 							//this.iArr[index] = false;
 							//myLock.unlock();
 							j++;
